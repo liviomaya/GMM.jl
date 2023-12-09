@@ -207,7 +207,6 @@ function gmm(f::Function,
     show_trace::Bool=false,
     show_every::Int64=10)
 
-
     b, g, bCov, gCov, Dg, S, J = gmm_step(f, b0, W, df, s, opt_steps, algorithm, iterations, show_trace, show_every)
 
     for n in 2:N

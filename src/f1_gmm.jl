@@ -37,7 +37,6 @@ struct GMMSolution
     J::Float64
 end
 
-
 g_apply(f, b) = mean(f(b), dims=1)[:]
 
 # optimize by increasingly growing dimensionality of the opt problem

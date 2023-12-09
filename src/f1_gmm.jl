@@ -165,7 +165,7 @@ end
 """
     sol = gmm(f, b0; <kwargs>)
 
-Solve the GMM2 model `Min E[f(b)]' W E[f(b)]`. Returns `GMMSolution` object.
+Solve the GMM model `Min E[f(b)]' W E[f(b)]`. Returns `GMMSolution` object.
 
 ### Arguments
 

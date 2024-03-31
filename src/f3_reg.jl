@@ -155,27 +155,3 @@ function mv_reg(y::Matrix{Float64}, x::Matrix{Float64}; intercept=true, s=white(
 end
 
 mv_reg(y::Matrix{Float64}, x::Vector{Float64}; intercept=true, s=white()) = mv_reg(y, reshape(x, length(x), 1); intercept=intercept, s=s)
-
-"""
-`pc, λ, V = principal_components(X; remove_mean=false, positive_eigvec=true)`
-
-Option `positive_eigvec` forces most elements of eigenvectors to be positive
-
-`pc[:,i]` stores the `i`-th principal component series
-
-`λ` stores the eigenvalues in increasing order
-
-`V[:,i]` contains `i`-th eigenvector
-"""
-function principal_components(X; remove_mean=false, positive_eigvec=true)
-    remove_mean && (X = demean(X))
-    λ, V = eigen(cov(X), sortby=z -> -z)
-
-    if positive_eigvec
-        Id = [count(col .< 0) > count(col .>= 0) for col in eachcol(V)]
-        V .*= ones(size(V, 1)) * ((.!Id') .+ -1 * (Id'))
-    end
-    pc = X * V
-
-    return pc, λ, V
-end

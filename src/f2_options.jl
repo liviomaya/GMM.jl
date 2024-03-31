@@ -2,13 +2,15 @@
 
 df can be any of the following:
     exact(df) 
-    forwarddiff()
+    finite_diff()
 
 s can be any of the following:
     preset(S)
-    nw(k)
-    hh(k) 
-    white() =#
+    newey_west(k)
+    hansen_hodrick(k) 
+    white() 
+
+=#
 
 
 function exact(df)
@@ -18,7 +20,7 @@ function exact(df)
     return f_gen
 end
 
-function forwarddiff(; step=1e-5)
+function finite_diff(; step=1e-5)
     function f_gen(f)
 
         function df(b)
@@ -34,11 +36,12 @@ function forwarddiff(; step=1e-5)
             for p = 1:P
                 # b change
                 db = zeros(P)
-                db[p] = step
+                db[p] = step / 2
 
                 # evaluate f at b + db
                 ff_fwd = f(b + db)
-                dff[:, :, p] .= (ff_fwd .- ff) ./ step
+                ff_bwd = f(b - db)
+                dff[:, :, p] .= (ff_fwd .- ff_bwd) ./ step
             end
             return dff
         end
@@ -72,7 +75,7 @@ function S_estimator(k::Int64, w::Function)
                 v_r = F
                 v_c = F
             end
-            av = (v_r' * v_c) / T
+            av = (v_r' * v_c) / (T - ja)
             S += wei * av
         end
         # S = (S .+ S') / 2
@@ -81,8 +84,8 @@ function S_estimator(k::Int64, w::Function)
     return S_gen
 end
 
-nw(k::Int64) = S_estimator(k, (j, k) -> (k - abs(j)) / k)
-hh(k::Int64) = S_estimator(k, (j, k) -> 1)
+newey_west(k::Int64) = S_estimator(k, (j, k) -> (k - abs(j)) / k)
+hansen_hodrick(k::Int64) = S_estimator(k, (j, k) -> 1)
 white() = S_estimator(2, (j, k) -> (j == 0) ? 1 : 0)
 
 function preset(S)

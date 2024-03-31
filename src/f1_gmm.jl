@@ -39,7 +39,7 @@ end
 
 g_apply(f, b) = mean(f(b), dims=1)[:]
 
-# optimize by increasingly growing dimensionality of the opt problem
+# optimize by increasingly growing dimensionality of the optimization problem
 function opt_growing_dim(obj, b0, algorithm, opt)
 
     P = length(b0)
@@ -56,30 +56,6 @@ function opt_growing_dim(obj, b0, algorithm, opt)
             println("Minimization of gᵀ W g failed")
         end
     end
-    return x
-end
-
-# optimize by increasingly growing dimensionality of the opt problem 
-function opt_multi_univariate(obj, b0, algorithm, opt)
-
-    P = length(b0)
-    x = zeros(0)
-    x0 = zeros(0)
-    for p in 1:P
-        opt.show_trace && printstyled("Optimization - Parameter $p of $P \n"; bold=true)
-        temp_obj(X) = obj([x; X; b0[p+1:P]])
-        x0 = [b0[p]]
-        r = optimize(temp_obj, x0, algorithm, opt)
-        incr::Vector{Float64} = r.minimizer
-        x = vcat(x, incr)
-    end
-
-    # solve complete problem
-    opt.show_trace && printstyled("Optimization - Complete Problem \n"; bold=true)
-    x0 = x
-    r = optimize(obj, x0, algorithm, opt)
-    !Optim.converged(r) && println("Minimization of gᵀ W g failed")
-    x::Vector{Float64} = r.minimizer
     return x
 end
 
@@ -130,7 +106,6 @@ function complementary_objects(f, W, b, df, s)
 end
 
 
-
 # √T (b̂ - b) → 𝑁(0, bCov)
 # √T g → 𝑁(0, gCov) (gCov non-invertible, use pinv instead)
 # T J_stat → Χ²(M-P)
@@ -179,9 +154,9 @@ Solve the GMM model `Min E[f(b)]' W E[f(b)]`. Returns `GMMSolution` object.
 
 - `W::Matrix{Float64}`: Weighting matrix. Defaults to identity.
 
-- `df`: derivative of function `f`. Two options: `exact(df)` for a given function `df(x,b)` or `forwarddiff(;step=1e-5)` for forward automatic differentiation. Default = `forwarddiff()`.
+- `df`: derivative of function `f`. Two options: `exact(df)` for a given function `df(x,b)` or `finite_diff(;step=1e-5)` for finite differentiation (central difference). Default = `finite_diff()`.
 
-- `s`: matrix `S` is an estimate of the asymptotic variance of the sample mean `∑ E[f(b) f(b)ᵀ]`. Algorithms for calculations: `preset(S)` for a given `S`, `nw(k)` (Newey & West 1987) or `hh(k)` (Hansen & Hodrick 1980) for given number of lags, or still `white()` (serially uncorrelated `f`). Default = `white()`.
+- `s`: matrix `S` is an estimate of the asymptotic variance of the sample mean `∑ E[f(b) f(b)ᵀ]`. Algorithms for calculations: `preset(S)` for a given `S`, `newey_west(k)` (Newey & West 1987) or `hansen_hodrick(k)` (Hansen & Hodrick 1980) for given number of lags, or still `white()` (serially uncorrelated `f`). Default = `white()`.
 
 - `opt_steps`: If `:default`, search directly over space of `b` using `b0` as initial guess. If `:growing`, search over space `b[1:p]`, growing `p` iteratively and using as starting condition the optimized value of the previous iteration. If `:univariate`, search over `b[p]` space fixing `b[1:p-1]` on optimized values; then search directly over space of `b` using as initial guess the resulting vector.
 

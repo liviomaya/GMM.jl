@@ -2,8 +2,8 @@ module GMM
 
 export gmm, GMMSolution
 export reg, reg_table, mv_reg
-export principal_components
-export exact, forwarddiff, nw, hh, white, preset
+export exact, finite_diff
+export newey_west, hansen_hodrick, white, preset
 export BFGS, Newton
 
 include("f0_header.jl")

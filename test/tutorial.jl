@@ -1,84 +1,78 @@
-# ]activate "Project.toml"
 using Distributions, Plots, LinearAlgebra, Statistics
-using GMM
+using GMM, Optim
 
 
-# test gmm_spec and reg
+# test regression methods (regOLS, regIV, multiOLS, multiIV, report):
 function regression_test()
     #= 
 
     The true model is
         y = β X + ϵ
-    where X ∼ [1 𝑁(0, Ω)].
+    where X ∼ [1 𝑁(0, Ω)] and std(ϵ) = σ
+
+    We are given instruments Z
 
     The following moment conditions hold:
         E(X ⊗ ϵ) = E(X ⊗ (y - β X)) = 0 
-        E(ϵϵ') = Σ 
+        E(Z ⊗ ϵ) = E(Z ⊗ (y - β X)) = 0 
 
-    In this example, I use the first moment condition above to estimate β. 
+    I use these moment conditions to estimate β. 
     =#
 
     T = 200 # sample size
     β = [10.0, 0.8, -0.2] # true β
-    σ = 0.20 # true σ
+    σ = 0.80 # true σ
 
     # simulate X
     Ω = [1.0 0.20; 0.20 0.50]
     dist_X = MvNormal(zeros(2), Ω)
     X = [ones(T) rand(dist_X, T)']
-    # scatter(X[:, 2], X[:, 3], title = "X") |> display
 
-    # simulate e
+    # simulate Y
     dist_e = Normal(0.0, σ)
     e = rand(dist_e, T)
-    # scatter(X[:, 2], e, title="e") |> display
-
-    # left-hand variable
     Y = X * β + e
-    # scatter(X[:, 2], Y[:, 1], title="Y") |> display
+
+    # simulate Z
+    nu = rand(dist_e, T, 2)
+    nu2 = rand(dist_e, T, 2)
+    Z = [ones(T) (X[:, [2, 3]] .+ nu) (X[:, [2, 3]] .+ nu2)]
 
     #########################################################
-    # Test reg_table
+    # (By Hand) OLS
     #########################################################
-    println("Regression Table:")
-    reg_table(Y, X[:, 2:3]; subset=[[1, 2], [1], [2]], intercept=true, s=white(), R2adj=true)
-
-
-    #########################################################
-    # Calculate OLS by hand 
-    #########################################################
-    b_OLS = (Y' * X) * inv(X' * X) |> vec
+    b_OLS = inv(X' * X) * X' * Y
     eOLS = Y .- X * b_OLS
     ΣOLS = cov(eOLS, corrected=false)
     bCov_OLS = inv(X' * X / T) * ΣOLS
 
     #########################################################
-    # Use package functions
+    # (Package) Regression Functions
     #########################################################
-    b_REG, bCov_REG, e, R2 = reg(Y, X[:, 2:3]; intercept=true, s=white(), R2adj=true)
-
+    ols = regOLS(Y, X[:, [2, 3]]; intercept=true)
+    ivE = regIV(Y, X[:, [2, 3]], Z[:, 2:3]; intercept=true)
+    ivO = regIV(Y, X[:, [2, 3]], Z[:, 2:end]; intercept=true)
 
     #########################################################
-    # Use GMM estimation functions
+    # (Package) GMM estimation functions
     #########################################################
     # Moment condition: E(X ⊗ ϵ) = E(X ⊗ (y - β X)) = 
     f(b) = X .* ((Y .- X * b) * ones(size(X, 2))')
-
     b0 = [5.0, 0.0, 0.0]
-    sol = gmm(f, b0; df=finite_diff(), s=hansen_hodrick(5))
+    gmmS = gmm(f, b0; df=forwarddiff(), opt=Optim.Options(show_trace=false))
+
 
     #########################################################
-    # Reports
-    #########################################################
+    # Reporting
+    ############################################
     println(" ")
     println(" ")
-    println("Coefficients estimate:")
+    println("Coefficients estimates:")
+    println("(starting from true β)")
     println(" ")
-    println("True: $β")
-    println("OLS (by hand): $b_OLS")
-    println("OLS (package): $b_REG")
-    println("GMM (package): $(sol.b)")
+    display([β b_OLS ols.gmm.coef ivE.gmm.coef ivO.gmm.coef gmmS.coef])
 
+    println(" ")
     println(" ")
     println(" ")
 
@@ -87,25 +81,48 @@ function regression_test()
     println("OLS (by hand):")
     display(bCov_OLS)
     println(" ")
-    println("OLS (package - White):")
-    display(bCov_REG)
+    println("OLS (package):")
+    display(ols.gmm.coefCov)
     println(" ")
-    println("GMM (package - Hansen & Hodrick):")
-    display(sol.bCov)
+    println("IV Overidentified (package):")
+    display(ivO.gmm.coefCov)
     println(" ")
+    println("GMM (package):")
+    display(gmmS.coefCov)
+    println(" ")
+    println(" ")
+    println(" ")
+
+    #########################################################
+    # Multi-Regression Tables
+    ############################################
+
+    report(ols)
+
+    multiOLS(Y, X[:, [2, 3]];
+        intercept=true,
+        subsets=[[1, 2], [1], [2]],
+        spectral_model=white())
+
+    multiIV(Y, X[:, [2, 3]], Z[:, 2:end];
+        intercept=true,
+        two_step=false,
+        weight=inv(ivO.gmm.spectral),
+        subsets=[[1, 2], [1], [2]],
+        spectral_model=preset(ivO.gmm.spectral))
 
     return nothing
 end
-regression_test()
+@time regression_test()
 
 # test multivariate regression
 function mv_reg_test()
 
     function generate_some_data()
 
-        T = 200
-        β1 = [10.0, 0.8, -0.2, 0.2]
-        β2 = [5.0, 0.1, 1.0, -0.50]
+        T = 200 # sample size
+        β1 = [10.0, 0.8, -0.2, 0.2] # true β
+        β2 = [5.0, 0.1, 1.0, -0.50] # true β
         σ = 2.0 # true σ
 
         # simulate X
@@ -126,35 +143,39 @@ function mv_reg_test()
 
         return y, x, B0
     end
-    y, x, B0 = generate_some_data()
-    T, N = size(y)
+    Y, x, B0 = generate_some_data()
+    T, N = size(Y)
+    X = [ones(T) x]
+    Z = X
     P = size(x, 2) + 1
 
-    B, bCov, e, R2 = mv_reg(y, x; intercept=true, s=white())
+    weight = diagm(ones(2 * 4))
+    iv = regIV(Y, x[:, 1], x;
+        intercept=true,
+        two_step=false,
+        weight=weight,
+        spectral_model=white())
+    # display([vec(B0[:, 1:2]') vec([iv.intercept iv.coef]')])
 
-    println("True B:")
-    display(round.(B0, digits=1))
-    println("")
-    println("Estimated B:")
-    display(round.(B, digits=1))
-    println("")
-    println("Standard Deviation B:")
-    stdB = sqrt.(reshape(diag(bCov), P, N)' / T)
-    display(round.(stdB, digits=2))
-    println("")
-    println("R-Squared:")
-    display(round.(R2, digits=2))
+    ols = regOLS(Y, x;
+        intercept=true,
+        spectral_model=white())
+    # display([vec(B0') vec([ols.intercept ols.coef]')])
 
-    return
+    report(ols)
+    report(iv)
+    println("")
+    println("True Coefficients:")
+    display(B0')
 end
-mv_reg_test()
+@time mv_reg_test()
 
 # test gmm:
 function estim_Gamma()
     # estimate Gamma parameter distribution matching mean, variance and skewness
 
     # estimate Gamma distribution with parameters
-    T = 1000 # sample size
+    T = 10000 # sample size
     α = 1.0
     β = 2.0
 
@@ -181,19 +202,22 @@ function estim_Gamma()
     f(p) = f(p[1], p[2])
 
     # optimization
-    b0 = [0.2, 0.2]
-    N = 2
+    coef0 = [0.2, 0.2]
 
-    sol = gmm(f, b0;
-        N=N,
-        W=diagm(ones(size(f(b0), 2))),
-        opt_steps=:default,
-        df=finite_diff(),
-        s=newey_west(10),
-        algorithm=BFGS(),
+    opt = Optim.Options(
         iterations=100,
         show_trace=true,
-        show_every=10)
+        show_every=10
+    )
+
+    sol = gmm(f, coef0;
+        two_step=true,
+        weight=diagm(ones(size(f(coef0), 2))),
+        opt_steps=:default,
+        df=forwarddiff(),
+        spectral_model=white(),
+        algorithm=BFGS(),
+        opt=opt)
 
     #########################################################
     # Reports
@@ -203,8 +227,8 @@ function estim_Gamma()
     println("Coefficients estimate:")
     println(" ")
     println("True: $([α, β])")
-    println("Estm: $(round.(sol.b, digits=2))")
+    println("Estm: $(round.(sol.coef, digits=2))")
 
-    return
+    return sol
 end
-estim_Gamma()
+@time estim_Gamma();

@@ -1,14 +1,15 @@
 module GMM
 
 export gmm, GMMSolution
-export reg, reg_table, mv_reg
-export exact, finite_diff
-export newey_west, hansen_hodrick, white, preset
+export Regression, MvRegression
+export regOLS, multiOLS, regIV, multiIV, report
+export exact, forwarddiff, nw, hh, white, preset
 export BFGS, Newton
 
-include("f0_header.jl")
-include("f1_gmm.jl")
-include("f2_options.jl")
-include("f3_reg.jl")
+include("header.jl")
+include("main_gmm.jl")
+include("options.jl")
+include("linear_univariate.jl")
+include("linear_multivariate.jl")
 
-end # module
+end

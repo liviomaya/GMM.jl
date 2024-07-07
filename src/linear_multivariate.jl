@@ -154,24 +154,33 @@ function regIV(Y::Matrix{Float64},
     z::H where {H<:VecOrMat{Float64}};
     intercept::Bool=true,
     two_step::Bool=false,
-    weight::Matrix{Float64}=diagm(ones(size(z, 2) + intercept)),
+    weight::Matrix{Float64}=diagm(ones((size(z, 2) + intercept) * size(Y, 2))),
     spectral_model=white())
 
-    X = intercept ? [ones(size(x, 1)) x] : x
-    Z = intercept ? [ones(size(x, 1)) z] : z
+    check_consistency(Y, x, z, weight, intercept)
 
-    if size(z, 2) == size(x, 2)
+    # promote to matrix
+    x_mat = promote_to_matrix(x)
+    z_mat = promote_to_matrix(z)
+
+    # check valid IV 
+    check_order(x_mat, z_mat)
+    check_rank(x_mat, z_mat)
+
+    # add intercept
+    X = intercept ? [ones(size(x_mat, 1)) x_mat] : x_mat
+    Z = intercept ? [ones(size(z_mat, 1)) z_mat] : z_mat
+
+    if size(z_mat, 2) == size(x_mat, 2)
         gmmSol = mv_gmmiv_exact(Y, X, Z, spectral_model)
-    elseif size(z, 2) > size(x, 2)
+    elseif size(z_mat, 2) > size(x_mat, 2)
         use_weight = weight
         gmmSol = mv_gmmiv_over(Y, X, Z, use_weight, spectral_model)
-
         if two_step
             use_weight = inv(gmmSol.spectral)
             gmmSol = mv_gmmiv_over(Y, X, Z, use_weight, preset(gmmSol.spectral))
         end
-    else
-        error("Order condition violated. Additional instruments required.")
+
     end
 
     return build_mv_regression(gmmSol, Y, X, intercept)

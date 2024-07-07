@@ -59,6 +59,9 @@ GMMSolution(coef::Vector{Float64},
     nobs::Int64
 ) = GMMSolution(coef, mom, coefCov, momCov, Dmom, spectral, weight, mom' * weight * mom, length(coef), length(mom), nobs)
 
+function promote_to_matrix(vec_or_mat::VecOrMat)
+    return vec_or_mat isa AbstractVector ? reshape(vec_or_mat, :, 1) : vec_or_mat
+end
 
 # optimize by increasingly growing dimensionality of the opt problem
 function opt_growing_dim(obj, b0, algorithm, opt)

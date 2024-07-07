@@ -118,6 +118,38 @@ function build_regression(gmmSol, y, X, intercept)
         BIC)
 end
 
+function check_consistency(y, x, z, weight, intercept)
+
+    if (length(y) == 0) | (length(x) == 0) | (length(z) == 0)
+        throw(ArgumentError("One (of more) empty arrays."))
+    end
+
+    if !(size(y, 1) == size(x, 1) == size(z, 1))
+        throw(ArgumentError("Sample arrays must have the same number of rows."))
+    end
+
+    if size(weight, 1) != size(weight, 2)
+        throw(ArgumentError("Weight matrix must be square."))
+    end
+
+    if size(weight, 2) != (size(z, 2) + intercept) * size(y, 2)
+        throw(ArgumentError("Size of weight matrix not consistent number of moments."))
+    end
+
+end
+
+function check_order(X, Z)
+    if size(Z, 2) < size(X, 2)
+        throw(ArgumentError("Order condition violated. Please, add instruments."))
+    end
+end
+
+function check_rank(X, Z)
+    if rank(Z' * X ./ size(X, 1); atol=1e-12) < size(X, 2)
+        throw(ArgumentError("Rank condition violated. Columns of Z'X not linearly independent. (Tolerance = 1e-12.)"))
+    end
+end
+
 """
         reg = regOLS(y, x; intercept, spectral_model)
 
@@ -175,21 +207,32 @@ function regIV(y::Array{Float64,1},
     weight::Matrix{Float64}=diagm(ones(size(z, 2) + intercept)),
     spectral_model=white())
 
-    X = intercept ? [ones(size(x, 1)) x] : x
-    Z = intercept ? [ones(size(x, 1)) z] : z
+    check_consistency(y, x, z, weight, intercept)
 
-    if size(z, 2) == size(x, 2)
+    # promote to matrix
+    x_mat = promote_to_matrix(x)
+    z_mat = promote_to_matrix(z)
+
+    # check valid IV 
+    check_order(x_mat, z_mat)
+    check_rank(x_mat, z_mat)
+
+    # add intercept
+    X = intercept ? [ones(size(x_mat, 1)) x_mat] : x_mat
+    Z = intercept ? [ones(size(z_mat, 1)) z_mat] : z_mat
+
+    # compute solution
+    if size(z_mat, 2) == size(x_mat, 2)
         gmmSol = gmmiv_exact(y, X, Z, spectral_model)
-    elseif size(z, 2) > size(x, 2)
+
+    elseif size(z_mat, 2) > size(x_mat, 2)
         use_weight = weight
         gmmSol = gmmiv_over(y, X, Z, use_weight, spectral_model)
-
         if two_step
             use_weight = inv(gmmSol.spectral)
             gmmSol = gmmiv_over(y, X, Z, use_weight, preset(gmmSol.spectral))
         end
-    else
-        error("Order condition violated. Additional instruments required.")
+
     end
 
     return build_regression(gmmSol, y, X, intercept)

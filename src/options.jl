@@ -87,6 +87,8 @@ nw(k::Int64) = S_estimator(k, (j, k) -> (k - abs(j)) / k)
 hh(k::Int64) = S_estimator(k, (j, k) -> 1)
 white() = S_estimator(2, (j, k) -> (j == 0) ? 1 : 0)
 
+# TODO: use preset to build 2SLS
+
 function preset(S)
     S_gen(f, b) = S
     return S_gen

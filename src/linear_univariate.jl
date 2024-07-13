@@ -129,11 +129,11 @@ function check_consistency(y, x, z, weight, intercept)
     end
 
     if size(weight, 1) != size(weight, 2)
-        throw(ArgumentError("Weight matrix must be square."))
+        throw(ArgumentError("Weighting matrix must be square."))
     end
 
     if size(weight, 2) != (size(z, 2) + intercept) * size(y, 2)
-        throw(ArgumentError("Size of weight matrix not consistent number of moments."))
+        throw(ArgumentError("Size of weighting matrix not consistent with number of moments."))
     end
 
 end

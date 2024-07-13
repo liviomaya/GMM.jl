@@ -176,6 +176,22 @@ function gmm_step(f::Function,
     return coef, mom, coefCov, momCov, Dmom, spectral
 end
 
+function check_consistency(y, weight)
+
+    if length(y) == 0
+        throw(ArgumentError("Moment function returns empty array."))
+    end
+
+    if size(weight, 1) != size(weight, 2)
+        throw(ArgumentError("Weighting matrix must be square."))
+    end
+
+    if size(weight, 2) != size(y, 2)
+        throw(ArgumentError("Size of weighting matrix not consistent with number of moments."))
+    end
+
+end
+
 """
     sol = gmm(f, coef0; <kwargs>)
 
@@ -215,16 +231,20 @@ function gmm(f::Function,
     weight::Matrix{Float64}=diagm(ones(size(f(coef0), 2))),
     df=forwarddiff(),
     spectral_model=white(),
-    opt_steps=:default,
+    opt_steps::Symbol=:default,
     algorithm=BFGS(),
     opt=Optim.Options(
         iterations=1000,
         show_trace=true,
         show_every=25))
 
+    check_consistency(f(coef0), weight)
+
+    # first step
     use_weight = weight
     coef, mom, coefCov, momCov, Dmom, spectral = gmm_step(f, coef0, use_weight, df, spectral_model, opt_steps, algorithm, opt)
 
+    # second step
     if two_step
         use_weight = inv(spectral)
         coef, mom, coefCov, momCov, Dmom, spectral = gmm_step(f, coef, use_weight, df, preset(spectral), opt_steps, algorithm, opt)

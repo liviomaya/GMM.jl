@@ -3,12 +3,14 @@ module GMM
 export gmm, GMMSolution
 export Regression, MvRegression
 export regOLS, multiOLS, regIV, multiIV, report
-export exact, forwarddiff, nw, hh, white, preset
+export exact, forwarddiff
+export preset, nw, hh, white
 
-include("header.jl")
-include("main_gmm.jl")
-include("options.jl")
-include("linear_univariate.jl")
-include("linear_multivariate.jl")
+include("dependencies.jl") # Package dependencies
+include("main_gmm.jl") # Core functions for general GMM problems
+include("linear_univariate.jl") # Functions for single-equation linear regression
+include("linear_multivariate.jl") # Functions for multi-equation linear regression
+include("moment_derivatives.jl") # Algorithms for computing first difference of moment functions
+include("spectral_estimators.jl") # Algorithms for estimating spectral density of sample moments
 
 end

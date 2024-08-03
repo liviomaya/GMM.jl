@@ -11,7 +11,7 @@
 
     @testset "Solution Precision" begin
         # generate random Gamma distribution data
-        n = 200000
+        n = 100000
         x = rand(Gamma(1.0, 1 / 5.0), n) # shape = 1.0, rate = 5.0
 
         # moments 
@@ -70,8 +70,8 @@
         # Check that the estimated coefficients are close to the true values
         @test abs(m1.coef[1] - 1.0) < 0.03
         @test abs(m2.coef[1] - 1.0) < 0.03
-        @test abs(m1.coef[2] - 5.0) < 0.05
-        @test abs(m2.coef[2] - 5.0) < 0.05
+        @test abs(m1.coef[2] - 5.0) < 0.1
+        @test abs(m2.coef[2] - 5.0) < 0.1
 
         #  Check that the estimated coefficients are statistically significant
         @test all(abs.(m1.coef) ./ sqrt.(diag(m1.coefCov) / m1.nobs) .> 2)

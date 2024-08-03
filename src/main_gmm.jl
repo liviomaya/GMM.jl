@@ -133,7 +133,7 @@ function gmm_objects(f, weight, coef, df, spectral_model)
     # compute moments and spectral density
     mom = mean(f(coef), dims=1)[:]
     DF = df(f)
-    Dmom = mean(DF(coef), dims=1) |> x -> reshape(x, (nmom, npar))
+    Dmom = reshape(mean(DF(coef), dims=1), (nmom, npar))
     spectral = spectral_model(f, coef)
 
     # check for singularity

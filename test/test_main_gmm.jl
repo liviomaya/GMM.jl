@@ -11,7 +11,7 @@
 
     @testset "Solution Precision" begin
         # generate random Gamma distribution data
-        n = 500000
+        n = 200000
         x = rand(Gamma(1.0, 1 / 5.0), n) # shape = 1.0, rate = 5.0
 
         # moments 
@@ -48,10 +48,6 @@
             algorithm=BFGS(),
             opt=Optim.Options(show_trace=false)
         )
-
-        #= Run the regression models
-        ols_reg = regOLS(y, x; spectral_model=white())
-        iv_reg = regIV(y, x, z; spectral_model=nw(3)) =#
 
         # Check sizes of solution object
         @test m1.npar == 2

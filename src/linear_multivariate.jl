@@ -2,24 +2,26 @@
 """
         MvRegression
 
+Stores the solution to a multiple-equation regression model (see `regOLS` and `regIV` functions).
+
 ## Fields
 - `gmm::GMMSolution`: solution to GMM problem on orthogonality conditions
-- `neq::Int64`: number of equation
-- `nreg::Int64`: number of regressors (includes intercept)
-- `nobs::Int64`: sample size
-- `intercept::Vector{Float64}`: equation intercept (`NaN` if no intercept)
-- `coef::Matrix{Float64}`: estimated coefficients (format `neq`×`nreg` plus intercept)
-- `stDev::Matrix{Float64}`: asymptotic standard deviation of `coef`
-- `tStat::Matrix{Float64}`: `coef` / `stDev`
-- `resCov::Matrix{Float64}`: MLE estimate of residuals' covariance
-- `fitted::Matrix{Float64}`: fitted values
-- `res::Matrix{Float64}`: sample residuals
-- `SSE::Vector{Float64}`: sum of squared residuals
-- `R2::Vector{Float64}`: R-Squared
-- `R2adj::Vector{Float64}`: adjusted R-Squared
-- `logLLH::Float64`: log-likelihood (assumes no residual serial correlation)
-- `AIC::Float64`: Akaike information criterion (assumes no residual serial correlation)
-- `BIC::Float64`: Bayesian information criterion (assumes no residual serial correlation)
+- `neq::Int`: number of equations
+- `nreg::Int`: number of regressors (includes intercept)
+- `nobs::Int`: number of observations, or the sample size
+- `intercept::Vector{Float}`: intercepts (`NaN` if no intercept)
+- `coef::Matrix{Float}`: estimated coefficients (dim 1 = equation, dim 2 = variables)
+- `stDev::Matrix{Float}`: asymptotic standard deviation of `coef` (dim 1 = equation, dim 2 = variables)
+- `tStat::Matrix{Float}`: `coef` / `stDev`
+- `resCov::Matrix{Float}`: MLE estimate of residuals' covariance matrix
+- `fitted::Matrix{Float}`: fitted values
+- `res::Matrix{Float}`: sample residuals
+- `SSE::Vector{Float}`: sum of squared residuals
+- `R2::Vector{Float}`: R-Squared
+- `R2adj::Vector{Float}`: adjusted R-Squared
+- `logLLH::Float`: log-likelihood (assumes no residual serial correlation)
+- `AIC::Float`: Akaike information criterion (assumes no residual serial correlation)
+- `BIC::Float`: Bayesian information criterion (assumes no residual serial correlation)
 """
 struct MvRegression
     gmm::GMMSolution
@@ -139,6 +141,14 @@ function build_mv_regression(gmmSol, Y, X, intercept)
         BIC)
 end
 
+
+"""
+        mvreg = regOLS(y::Matrix, x; <kwargs>)
+
+Estimate multiple-equation `y = x β + e` by OLS. The output `mvreg` is a `MvRegression` object.
+
+Keyword arguments are the same as the single-equation case. They apply equation-by-equation.
+"""
 function regOLS(Y::Matrix{Float64},
     x::J where {J<:VecOrMat{Float64}};
     intercept::Bool=true,
@@ -149,6 +159,13 @@ function regOLS(Y::Matrix{Float64},
         spectral_model=spectral_model)
 end
 
+"""
+        mvreg = regIV(y::Matrix, x, z; <kwargs>)
+
+Estimate multiple-equation `y = x β + e` using instrumental variables `z`. The output `mvreg` is a `MvRegression` object.
+
+Keyword arguments are the same as the single-equation case. They apply equation-by-equation.
+"""
 function regIV(Y::Matrix{Float64},
     x::J where {J<:VecOrMat{Float64}},
     z::H where {H<:VecOrMat{Float64}};

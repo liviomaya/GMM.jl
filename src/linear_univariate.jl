@@ -1,23 +1,25 @@
 """
         Regression
 
+Stores the solution to a single-equation regression model (see `regOLS` and `regIV` functions).
+
 ## Fields
 - `gmm::GMMSolution`: solution to GMM problem on orthogonality conditions
-- `nreg::Int64`: number of regressors
-- `nobs::Int64`: sample size
-- `intercept::Float64`: equation intercept (`NaN` if no intercept)
-- `coef::Vector{Float64}`: estimated coefficients
-- `stDev::Vector{Float64}`: asymptotic standard deviation of coefficient estimates
-- `tStat::Vector{Float64}`: `coef` / `stDev`
-- `resStDev::Float64`: MLE estimate of residuals' standard deviation
-- `fitted::Vector{Float64}`: fitted values
-- `res::Vector{Float64}`: sample residuals
-- `SSE::Float64`: sum of squared residuals
-- `R2::Float64`: R-Squared
-- `R2adj::Float64`: adjusted R-Squared
-- `logLLH::Float64`: log-likelihood (assumes no residual serial correlation)
-- `AIC::Float64`: Akaike information criterion (assumes no residual serial correlation)
-- `BIC::Float64`: Bayesian information criterion (assumes no residual serial correlation)
+- `nreg::Int`: number of regressors (includes intercept)
+- `nobs::Int`: number of observations, or the sample size
+- `intercept::Float`: equation intercept (`NaN` if no intercept)
+- `coef::Vector{Float}`: estimated coefficients
+- `stDev::Vector{Float}`: asymptotic standard deviation of coefficient estimates
+- `tStat::Vector{Float}`: `coef` / `stDev`
+- `resStDev::Float`: MLE estimate of residuals' standard deviation
+- `fitted::Vector{Float}`: fitted values
+- `res::Vector{Float}`: sample residuals
+- `SSE::Float`: sum of squared residuals
+- `R2::Float`: R-Squared
+- `R2adj::Float`: adjusted R-Squared
+- `logLLH::Float`: log-likelihood (assumes no residual serial correlation)
+- `AIC::Float`: Akaike information criterion (assumes no residual serial correlation)
+- `BIC::Float`: Bayesian information criterion (assumes no residual serial correlation)
 """
 struct Regression
     gmm::GMMSolution
@@ -151,18 +153,22 @@ function check_rank(X, Z)
 end
 
 """
-        reg = regOLS(y, x; intercept, spectral_model)
+        reg = regOLS(y, x; <kwargs>)
 
-Estimate `y = x β` by OLS. If `intercept`, add a constant.
-`spectral_model` can be `preset(x)` for a given `x`, `nw(k)` or `hh(k)` for given number of lags, or still `white()`.
+Estimate `y = x β + e` by ordinary least squares (OLS). The output `reg` is a `Regression` object. 
 
-Return `reg::Regression`. 
+### Arguments
+- `y::Vector{Float}`: vector with explained variable sample
+- `x::VecOrMat{Float}`: array with explanatory variable(s) sample (dim 1 = observations, dim 2 = variables)
 
-# Asymptotic Distribution
-
-√T (b - b₀) → 𝑁(0, Ω)
-
-where `b` is `reg.gmm.coef` and `Ω` is `reg.gmm.coefCov`.
+### Keyword Arguments
+- `intercept::Bool`: `true` to add intercept term as regressor  
+- `spectral_model`: estimator of spectral density of moment sample (see documentation for `gmm` function). Choose between: 
+    - `preset(S)` for a given `S::Array{Float, 3}` (dim 1: observations, dim 2: moments, dim 3: parameters)
+    - `nw(k)` (Newey & West 1987), where `k::Int` is the number of lags 
+    - `hh(k)` (Hansen & Hodrick 1980), where `k::Int` is the number of lags 
+    - `white()` (White (1980), serially uncorrelated `f`) 
+    Default = `white()` . 
 
 """
 function regOLS(y::Array{Float64,1},
@@ -175,29 +181,26 @@ function regOLS(y::Array{Float64,1},
         spectral_model=spectral_model)
 end
 
-# if intercept, intercept included in both x in z
 """
-        reg = regIV(y, x, z; kw)
+        reg = regIV(y, x, z; <kwargs>)
 
-Estimate `y = x β` using instrumental variables. Order condition requires `z` to have as many columns as `x`, or more.
+Estimate `y = x β + e` using instrumental variable (IV) `z`. The output `reg` is a `Regression` object. The order condition requires the number of instruments `z` to be as least as many as the number of explanatory variables `x`.
 
-Return `reg::Regression`. 
+### Arguments
+- `y::Vector{Float}`: vector with explained variable sample
+- `x::VecOrMat{Float}`: array with explanatory variable(s) sample (dim 1 = observations, dim 2 = variables)
+- `z::VecOrMat{Float}`: array with instrument(s) sample (dim 1 = observations, dim 2 = variables)
 
-## Keyword Arguments
-
-- `intercept::Bool`: Add a constant to `x` and `z`.
-- `two_step::Bool`: Estimate `β` two times, using efficient weights in the second run.
-- `weight::Matrix`: Weight matrix. Defaults to identity.
-- `spectral_model::Matrix`: Kernel to estimate spectral matrix `S = E[ggᵀ]`. Takes values: `preset(x)`, `nw(k)` or `hh(k)` for given number of lags, or `white()`
-
-# Asymptotic Distribution
-
-√T (b - b₀) → 𝑁(0, Ω)
-
-T gᵀ Σ g → χ²(nMom - nPar)
-
-where `b` is `reg.gmm.coef` and `Ω` is `reg.gmm.coefCov`; `g` is `reg.gmm.mom` and `Σ` is `reg.gmm.momCov`.
-
+### Keyword Arguments
+- `intercept::Bool`: `true` to add intercept term, both as regressor and as instrument
+- `two_step::Bool`: `true` to estimate `β` two times, using efficient weights in the second run  
+- `weight::Matrix`: weighting matrix for orthogonality conditions. Default = identity
+- `spectral_model`: estimator of spectral density of moment sample (see documentation for `gmm` function). Choose between: 
+    - `preset(S)` for a given `S::Array{Float, 3}` (dim 1: observations, dim 2: moments, dim 3: parameters)
+    - `nw(k)` (Newey & West 1987), where `k::Int` is the number of lags 
+    - `hh(k)` (Hansen & Hodrick 1980), where `k::Int` is the number of lags 
+    - `white()` (White (1980), serially uncorrelated `f`) 
+    Default = `white()` 
 """
 function regIV(y::Array{Float64,1},
     x::J where {J<:VecOrMat{Float64}},
@@ -248,6 +251,11 @@ function stars(pval)
     return ""
 end
 
+"""
+        report(reg)
+
+Print regression summary. Argument `reg` can be `Regression` (single-equation) or `MvRegression` (multiple-equation).
+"""
 function report(reg::Regression)
 
     coefTable = DataFrame(
@@ -292,6 +300,25 @@ function report(reg::Regression)
     return
 end
 
+"""
+        multiOLS(y, x; <kwargs>)
+
+Report table with estimates of `y = x β + e` by OLS using multiple subsets of explanatory variable in `x`. See keyword `subsets`. 
+
+### Arguments
+- `y::Vector{Float}`: vector with explained variable sample
+- `x::VecOrMat{Float}`: array with explanatory variable(s) sample (dim 1 = observations, dim 2 = variables)
+
+### Keyword Arguments
+- `intercept::Bool`: whether to add intercept term as regressor
+- `subsets::Vector{Vector{Int}}`: indexes of explanatory variables in each regression specification. Default = [1:size(x, 2)] (only the subset of all `x`)
+- `spectral_model`: estimator of spectral density of moment sample (see documentation for `gmm` function). Choose between: 
+    - `preset(S)` for a given `S::Array{Float64, 3}` (dim 1: observations, dim 2: moments, dim 3: parameters)
+    - `nw(k)` (Newey & West 1987), where `k::Int64` is the number of lags 
+    - `hh(k)` (Hansen & Hodrick 1980), where `k::Int64` is the number of lags 
+    - `white()` (White (1980), serially uncorrelated `f`) 
+    Default = `white()` 
+"""
 function multiOLS(y::Array{Float64,1},
     x::J where {J<:VecOrMat{Float64}};
     intercept::Bool=true,
@@ -347,6 +374,30 @@ function multiOLS(y::Array{Float64,1},
     return
 end
 
+"""
+        multiIV(y, x, z; <kwargs>)
+
+Report table with estimates of `y = x β + e` through IV variables `z` using multiple subsets of explanatory variable in `x`. See keyword `subsets`. 
+
+The order condition requires the number of instruments `z` to be as least as many as the number of explanatory variables `x`.
+
+### Arguments
+- `y::Vector{Float}`: vector with explained variable sample
+- `x::VecOrMat{Float}`: array with explanatory variable(s) sample (dim 1 = observations, dim 2 = variables)
+- `z::VecOrMat{Float}`: array with instrument(s) sample (dim 1 = observations, dim 2 = variables)
+
+### Keyword Arguments
+- `intercept::Bool`: `true` to add intercept term, both as regressor and as instrument
+- `two_step::Bool`: estimate `β` two times, using efficient weights in the second run  
+- `weight::Matrix`: weighting matrix for orthogonality conditions. Default = identity
+- `subsets::Vector{Vector{Int}}`: indexes of explanatory variables in different specifications of the regression to be estimated. Default = [1:size(x, 2)] (only the subset of all `x`)
+- `spectral_model`: estimator of spectral density of moment sample (see documentation for `gmm` function). Choose between: 
+    - `preset(S)` for a given `S::Array{Float, 3}` (dim 1: observations, dim 2: moments, dim 3: parameters)
+    - `nw(k)` (Newey & West 1987), where `k::Int64` is the number of lags 
+    - `hh(k)` (Hansen & Hodrick 1980), where `k::Int64` is the number of lags 
+    - `white()` (White (1980), serially uncorrelated `f`) 
+    Default = `white()` 
+"""
 function multiIV(y::Array{Float64,1},
     x::J where {J<:VecOrMat{Float64}},
     z::H where {H<:VecOrMat{Float64}};

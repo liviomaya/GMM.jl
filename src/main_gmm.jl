@@ -3,35 +3,35 @@
 
 Stores the solution to an GMM model (see `gmm` function).
 
-### Arguments
+### Fields
 
-- `coef::Vector{Float64}`: GMM estimate of parameter vector.
+- `coef::Vector{Float}`: GMM estimate of parameter vector.
 
-- `mom::Vector{Float64}`: sample moments evaluated at `coef`.
+- `mom::Vector{Float}`: sample moments evaluated at `coef`.
 
-- `coefCov::Matrix{Float64}`: asymptotic covariance (parameters).
+- `coefCov::Matrix{Float}`: asymptotic covariance (parameters).
 
-- `momCov::Matrix{Float64}`: asymptotic covariance (moments).
+- `momCov::Matrix{Float}`: asymptotic covariance (moments).
 
-- `Dmom::Matrix{Float64}`: sample moments differential.
+- `Dmom::Matrix{Float}`: first derivative of sample moments.
 
-- `spectral::Matrix{Float64}`: asymptotic covariance (sample moments); spectral density.
+- `spectral::Matrix{Float}`: asymptotic covariance (sample moments); spectral density.
 
-- `weight::Matrix{Float64}`: weighting matrix of the moment minimization problem.
+- `weight::Matrix{Float}`: weighting matrix of the moment minimization problem.
 
-- `J::Float64`: `𝐽` statistic `momᵀ weight mom` (Hansen (1982)'s `𝐽` statistic when weight -> inv(spectral))
+- `J::Float`: `𝐽` statistic, or `momᵀ weight mom` (Hansen (1982)'s `𝐽` statistic when weight -> inv(spectral))
 
-- `npar::Int64`: number of parameters.
+- `npar::Int`: number of parameters.
 
-- `nmom::Int64`: number of moments.
+- `nmom::Int`: number of moments.
 
-- `nobs::Int64`: sample size.
+- `nobs::Int`: number of observations, or the sample size.
 
 ### Asymptotic Distributions
 
-√nobs × (`coef` - coef₀) → 𝑁(0, `coefCov`)
+√n obs × (`coef` - coef₀) → 𝑁(0, `coefCov`)
 
-√nobs × `mom` → 𝑁(0, `momCov`) (`momCov` non-invertible, use `pinv` for inference)
+√n obs × `mom` → 𝑁(0, `momCov`) (`momCov` non-invertible, use `pinv` for inference)
 
 nobs × `J` → 𝜒²(nmom-npar) (if `weight` → `inv(spectral)` )
 """
@@ -119,8 +119,6 @@ function minimize_objective(f, W, b0, opt_steps, algorithm, opt)
         b = r.minimizer
     elseif opt_steps == :growing
         b = opt_growing_dim(obj, b0, algorithm, opt)
-    elseif opt_steps == :univariate
-        b = opt_multi_univariate(obj, b0, algorithm, opt)
     end
     return b
 end
@@ -195,34 +193,41 @@ end
 """
     sol = gmm(f, coef0; <kwargs>)
 
-Solve the GMM model `Min E[f(b)]' W E[f(b)]`. Returns `GMMSolution` object.
+Solve the generalized method of moments (GMM) problem `Min E[f(b)]' W E[f(b)]`. The output `sol` is a `GMMSolution` object.
 
 ### Arguments
 
 - `f::Function`: moment function; `f(b)` returns observations in rows.
 
-- `coef0::Vector{Float64}`: initial guess for optimization algorithm.
+- `coef0::Vector{Float}`: initial guess for optimization algorithm.
 
 
 ### Keyword Arguments
 
-- `N::Int64`: number of iterations to re-estimate optimal weighting matrices `W`. Default = 1.
+- `two_step::Bool`: `true` to run optimization twice, using spectral matrix estimated in the first step to compute optimal weighting matrix. Default = false
 
-- `weight::Matrix{Float64}`: Weighting matrix. Defaults to identity.
+- `weight::Matrix{Float}`: weighting matrix. Default = identity
 
-- `df`: derivative of function `f`. Two options: `exact(df)` for a given function `df(x,b)` or `forwarddiff(;step=1e-5)` for forward automatic differentiation. Default = `forwarddiff()`.
+- `df`: first derivative of moment function `f`. Choose between: 
+    - `exact(df)` for a given function `df(x,b)`
+    - `forwarddiff(; step=1e-5)` for a numerical forward differentiation algorithm
+    Default = `forwarddiff()`
 
-- `spectral_model`: estimator of `∑ E[f(b) f(b)ᵀ]`. Algorithms for calculations: `preset(S)` for a given `S`, `nw(k)` (Newey & West 1987) or `hh(k)` (Hansen & Hodrick 1980) for given number of lags, or still `white()` (serially uncorrelated `f`). Default = `white()`.
+- `spectral_model`: estimator of `∑ E[f(b) f(b)ᵀ]`. Choose between: 
+    - `preset(S)` for a given `S::Array{Float64, 3}` (dim 1: observations, dim 2: moments, dim 3: parameters)
+    - `nw(k)` (Newey & West 1987), where `k::Int64` is the number of lags 
+    - `hh(k)` (Hansen & Hodrick 1980), where `k::Int64` is the number of lags 
+    - `white()` (White (1980), serially uncorrelated `f`) 
+    Default = `white()`
 
-- `opt_steps`: If `:default`, search directly over space of `b` using `b0` as initial guess. If `:growing`, search over space `b[1:p]`, growing `p` iteratively and using as starting condition the optimized value of the previous iteration. If `:univariate`, search over `b[p]` space fixing `b[1:p-1]` on optimized values; then search directly over space of `b` using as initial guess the resulting vector.
+- `opt_steps`: whether to solve optimization problem iteratively. Chose between: 
+    - `:default`: search over space of `b` using `b0` as initial guess
+    - `:growing`: search over space `b[1:p]`, growing `p` iteratively and using as starting condition the optimized value of the previous iteration
+    Default = `:default`
 
-- `algorithm`: numerical optimization algorithm (see `Optim` package). Use `BFGS()` or `Newton()`. Default = `BFGS()`.
+- `algorithm`: optimization algorithm (see `Optim` package). Default = `BFGS()`
 
-- `iterations::Int64`: Optimization parameter. Number of iterations. Default=100.
-
-- `show_trace::Bool`: Optimization parameter. Determines whether to show trace. Default=`false`.
-
-- `show_every::Int64`: Optimization parameter. Interval between trace reports. Default=10.
+- `opt::Optim.Options`: options for optimization problem. See `Optim` package
 
 """
 function gmm(f::Function,

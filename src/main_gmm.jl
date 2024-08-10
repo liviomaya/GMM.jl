@@ -63,64 +63,15 @@ function promote_to_matrix(vec_or_mat::VecOrMat)
     return vec_or_mat isa AbstractVector ? reshape(vec_or_mat, :, 1) : vec_or_mat
 end
 
-# optimize by increasingly growing dimensionality of the opt problem
-function opt_growing_dim(obj, b0, algorithm, opt)
-
-    P = length(b0)
-    x = zeros(0)
-    x0 = zeros(0)
-    for p in 1:P
-        opt.show_trace && printstyled("Optimization - Dim $p of $P \n"; bold=true)
-        temp_obj(X) = obj([X; b0[p+1:P]])
-        x0 = vcat(x, b0[p])
-        r = optimize(temp_obj, x0, algorithm, opt)
-        x = r.minimizer
-
-        if (p == P) && !Optim.converged(r)
-            println("Minimization of gᵀ W g failed")
-        end
-    end
-    return x
-end
-
-#= optimize by increasingly growing dimensionality of the opt problem 
-function opt_multi_univariate(obj, b0, algorithm, opt)
-
-    P = length(b0)
-    x = zeros(0)
-    x0 = zeros(0)
-    for p in 1:P
-        opt.show_trace && printstyled("Optimization - Parameter $p of $P \n"; bold=true)
-        temp_obj(X) = obj([x; X; b0[p+1:P]])
-        x0 = [b0[p]]
-        r = optimize(temp_obj, x0, algorithm, opt)
-        incr::Vector{Float64} = r.minimizer
-        x = vcat(x, incr)
-    end
-
-    # solve complete problem
-    opt.show_trace && printstyled("Optimization - Complete Problem \n"; bold=true)
-    x0 = x
-    r = optimize(obj, x0, algorithm, opt)
-    !Optim.converged(r) && println("Minimization of gᵀ W g failed")
-    x::Vector{Float64} = r.minimizer
-    return x
-end =#
-
 # search for optimal parameter vector
-function minimize_objective(f, W, b0, opt_steps, algorithm, opt)
+function minimize_objective(f, W, b0, algorithm, opt)
     function obj(b)
         B = mean(f(b), dims=1)[:]
         return B' * W * B
     end
-    if opt_steps == :default
-        r = optimize(obj, b0, algorithm, opt)
-        !Optim.converged(r) && println("Minimization of gᵀ W g failed")
-        b = r.minimizer
-    elseif opt_steps == :growing
-        b = opt_growing_dim(obj, b0, algorithm, opt)
-    end
-    return b
+    r = optimize(obj, b0, algorithm, opt)
+    !Optim.converged(r) && println("Minimization of GMM objective failed.")
+    return r.minimizer
 end
 
 # compute remaining objects
@@ -161,12 +112,11 @@ function gmm_step(f::Function,
     weight::Matrix{Float64},
     df,
     spectral_model,
-    opt_steps,
     algorithm,
     opt)
 
     # minimize gᵀ W g
-    coef = minimize_objective(f, weight, coef0, opt_steps, algorithm, opt)
+    coef = minimize_objective(f, weight, coef0, algorithm, opt)
 
     # compute other objects
     mom, coefCov, momCov, Dmom, spectral = gmm_objects(f, weight, coef, df, spectral_model)
@@ -220,11 +170,6 @@ Solve the generalized method of moments (GMM) problem `Min E[f(b)]' W E[f(b)]`. 
     - `white()` (White (1980), serially uncorrelated `f`) 
     Default = `white()`
 
-- `opt_steps`: whether to solve optimization problem iteratively. Chose between: 
-    - `:default`: search over space of `b` using `b0` as initial guess
-    - `:growing`: search over space `b[1:p]`, growing `p` iteratively and using as starting condition the optimized value of the previous iteration
-    Default = `:default`
-
 - `algorithm`: optimization algorithm (see `Optim` package). Default = `BFGS()`
 
 - `opt::Optim.Options`: options for optimization problem. See `Optim` package
@@ -236,7 +181,6 @@ function gmm(f::Function,
     weight::Matrix{Float64}=diagm(ones(size(f(coef0), 2))),
     df=forwarddiff(),
     spectral_model=white(),
-    opt_steps::Symbol=:default,
     algorithm=BFGS(),
     opt=Optim.Options(
         iterations=1000,
@@ -247,12 +191,12 @@ function gmm(f::Function,
 
     # first step
     use_weight = weight
-    coef, mom, coefCov, momCov, Dmom, spectral = gmm_step(f, coef0, use_weight, df, spectral_model, opt_steps, algorithm, opt)
+    coef, mom, coefCov, momCov, Dmom, spectral = gmm_step(f, coef0, use_weight, df, spectral_model, algorithm, opt)
 
     # second step
     if two_step
         use_weight = inv(spectral)
-        coef, mom, coefCov, momCov, Dmom, spectral = gmm_step(f, coef, use_weight, df, preset(spectral), opt_steps, algorithm, opt)
+        coef, mom, coefCov, momCov, Dmom, spectral = gmm_step(f, coef, use_weight, df, preset(spectral), algorithm, opt)
     end
 
     return GMMSolution(coef, mom, coefCov, momCov, Dmom, spectral, use_weight, size(f(coef), 1))

@@ -1,6 +1,6 @@
 module GMM
 
-export gmm, GMMSolution
+export GMMSolution, gmm, gmmOPT
 export Regression, MvRegression
 export regOLS, multiOLS, regIV, multiIV, report
 export exact, forwarddiff

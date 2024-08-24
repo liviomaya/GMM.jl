@@ -1,0 +1,9 @@
+.vscode/
+src/
+test/
+bin/
+
+LICENSE
+README.md
+Manifest.toml
+Project.toml

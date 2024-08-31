@@ -2,6 +2,7 @@
 /src/
 /test/
 /bin/
+deploy_docs.sh
 
 LICENSE
 README.md
